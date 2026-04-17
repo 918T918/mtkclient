@@ -28,6 +28,7 @@ from mtkclient.gui.daSpecial import DaSpecialWindow
 from mtkclient.gui.debugMemory import DebugMemoryWindow
 from mtkclient.gui.scripting import ScriptingWindow
 from mtkclient.gui.settings import SettingsWindow
+from mtkclient.gui.stage2Window import Stage2Window
 from mtkclient.gui.toolsMenu import generateKeysMenu, UnlockMenu
 from mtkclient.gui.toolkit import asyncThread, trap_exc_during_debug, convert_size, CheckBox, FDialog, \
     TimeEstim, set_gui_logger
@@ -288,6 +289,7 @@ class MainWindow(QMainWindow):
         self.debugmemory = None
         self.scripting = None
         self.settings = None
+        self.stage2 = None
         self.daloader = ""
         self.preloader = ""
         self.write_preloader_to_file = False
@@ -445,6 +447,12 @@ class MainWindow(QMainWindow):
         self.scripting.disableButtonsSignal.connect(self.disablebuttons)
         self.ui.tabWidget.addTab(self.scripting.tab, "Scripting")
 
+    def initstage2(self):
+        self.stage2 = Stage2Window(self.ui, self, self.sendToLog)
+        self.stage2.enableButtonsSignal.connect(self.enablebuttons)
+        self.stage2.disableButtonsSignal.connect(self.disablebuttons)
+        self.ui.tabWidget.addTab(self.stage2.tab, "Stage2 Client")
+
     def initkeys(self):
         self.genkeys = generateKeysMenu(self.ui, self, self.devhandler.da_handler, self.sendToLog)
         self.ui.generatekeybtn.clicked.connect(self.genkeys.generateKeys)
@@ -509,6 +517,7 @@ class MainWindow(QMainWindow):
         if self.daspecial: self.daspecial.setEnabled(False)
         if self.debugmemory: self.debugmemory.setEnabled(False)
         if self.scripting: self.scripting.setEnabled(False)
+        if self.stage2: self.stage2.setEnabled(False)
 
     @Slot()
     def enablebuttons(self):
@@ -536,6 +545,7 @@ class MainWindow(QMainWindow):
         if self.daspecial: self.daspecial.setEnabled(True)
         if self.debugmemory: self.debugmemory.setEnabled(True)
         if self.scripting: self.scripting.setEnabled(True)
+        if self.stage2: self.stage2.setEnabled(True)
 
         self.ui.partProgress.setValue(100)
         self.ui.fullProgress.setValue(100)
@@ -667,6 +677,7 @@ class MainWindow(QMainWindow):
                     self.initda()
                     self.initdebug()
                     self.initscript()
+                    self.initstage2()
                     self.initkeys()
                     self.initunlock()
                     self.initerase()
