@@ -1,7 +1,7 @@
 import os
 from unittest import mock
 from PySide6.QtCore import QObject, Signal, Qt
-from PySide6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QLabel, QLineEdit, QGroupBox, QScrollArea, QCheckBox
+from PySide6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QLabel, QLineEdit, QGroupBox, QScrollArea, QCheckBox, QComboBox
 from mtkclient.gui.toolkit import asyncThread, FDialog
 
 class DebugMemoryWindow(QObject):
@@ -29,26 +29,31 @@ class DebugMemoryWindow(QObject):
 
         # Logs Group
         logs_group = QGroupBox("Target Logs")
+        logs_group.setToolTip("Extraction of internal device logs.")
         logs_layout = QHBoxLayout(logs_group)
         self.btn_get_logs = QPushButton("Get Target Logs")
+        self.btn_get_logs.setToolTip("Downloads and saves the device's kernel/system logs.")
         logs_layout.addWidget(self.btn_get_logs)
         layout.addWidget(logs_group)
 
         # Memory Peek Group
         peek_group = QGroupBox("Memory Peek (Read)")
+        peek_group.setToolTip("Read raw memory in patched preloader mode.")
         peek_layout = QVBoxLayout(peek_group)
         
         h1 = QHBoxLayout()
         h1.addWidget(QLabel("Address (hex):"))
-        self.edit_addr = QLineEdit("0x0")
-        h1.addWidget(self.edit_addr)
+        self.combo_peek_addr = QComboBox()
+        self.combo_peek_addr.setEditable(True)
+        self.combo_peek_addr.addItems(["0x0", "0x200000", "0x40000000"])
+        h1.addWidget(self.combo_peek_addr)
         h1.addWidget(QLabel("Length (hex):"))
         self.edit_len = QLineEdit("0x100")
         h1.addWidget(self.edit_len)
         peek_layout.addLayout(h1)
 
         h2 = QHBoxLayout()
-        h2.addWidget(QLabel("Preloader:"))
+        h2.addWidget(QLabel("Preloader (opt):"))
         self.edit_pl = QLineEdit()
         self.btn_browse_pl = QPushButton("Browse")
         h2.addWidget(self.edit_pl)
@@ -57,17 +62,20 @@ class DebugMemoryWindow(QObject):
 
         h3 = QHBoxLayout()
         self.btn_peek = QPushButton("Peek Memory")
+        self.btn_peek.setToolTip("Performs the memory read operation.")
         h3.addWidget(self.btn_peek)
         peek_layout.addLayout(h3)
         layout.addWidget(peek_group)
 
         # FUSE Group
         fuse_group = QGroupBox("FUSE Filesystem")
+        fuse_group.setToolTip("Mount device storage as a virtual drive on your PC.")
         fuse_layout = QVBoxLayout(fuse_group)
         
         h4 = QHBoxLayout()
         h4.addWidget(QLabel("Mount Point:"))
         self.edit_mount = QLineEdit("/mnt/mtk")
+        self.edit_mount.setToolTip("The directory where the filesystem will be mounted.")
         self.check_rw = QCheckBox("Read/Write")
         self.btn_mount = QPushButton("Mount FS")
         h4.addWidget(self.edit_mount)
@@ -78,6 +86,7 @@ class DebugMemoryWindow(QObject):
 
         # Brom to Offs Group
         brom_to_offs_group = QGroupBox("Brom to Offsets (Header Generator)")
+        brom_to_offs_group.setToolTip("Extract hardware offsets from a BROM dump for developers.")
         brom_to_offs_layout = QVBoxLayout(brom_to_offs_group)
         h5 = QHBoxLayout()
         h5.addWidget(QLabel("BROM Dump:"))
@@ -92,6 +101,7 @@ class DebugMemoryWindow(QObject):
 
         # DA Parser Group
         da_parser_group = QGroupBox("DA Parser (Analyze Download Agent)")
+        da_parser_group.setToolTip("Analyze MTK Download Agent binaries.")
         da_parser_layout = QVBoxLayout(da_parser_group)
         h6 = QHBoxLayout()
         h6.addWidget(QLabel("DA Loader:"))
@@ -118,50 +128,6 @@ class DebugMemoryWindow(QObject):
         self.btn_browse_da.clicked.connect(lambda: self.browse_file(self.edit_da_file))
         self.btn_parse_da.clicked.connect(self.parse_da)
 
-    def parse_da(self):
-        da_file = self.edit_da_file.text()
-        if not da_file: return
-        self.disableButtonsSignal.emit()
-        thread = asyncThread(parent=self.parent, n=0, function=self.parse_da_async, parameters=[da_file])
-        thread.sendToLogSignal.connect(self.sendToLog)
-        thread.start()
-
-    def parse_da_async(self, toolkit, parameters):
-        da_file = parameters[0]
-        from mtkclient.Tools.da_parser import main as da_main
-        import sys
-        old_argv = sys.argv
-        sys.argv = ["da_parser", da_file]
-        try:
-            da_main()
-        except Exception as e:
-            toolkit.sendToLogSignal.emit(f"Error: {str(e)}")
-        finally:
-            sys.argv = old_argv
-        self.enableButtonsSignal.emit()
-
-    def gen_header(self):
-        brom_file = self.edit_brom_file.text()
-        if not brom_file: return
-        self.disableButtonsSignal.emit()
-        thread = asyncThread(parent=self.parent, n=0, function=self.gen_header_async, parameters=[brom_file])
-        thread.sendToLogSignal.connect(self.sendToLog)
-        thread.start()
-
-    def gen_header_async(self, toolkit, parameters):
-        brom_file = parameters[0]
-        from mtkclient.Tools.brom_to_offs import main as brom_main
-        import sys
-        old_argv = sys.argv
-        sys.argv = ["brom_to_offs", brom_file]
-        try:
-            brom_main()
-        except Exception as e:
-            toolkit.sendToLogSignal.emit(f"Error: {str(e)}")
-        finally:
-            sys.argv = old_argv
-        self.enableButtonsSignal.emit()
-
     def browse_file(self, lineedit):
         fname = self.fdialog.open()
         if fname: lineedit.setText(fname)
@@ -176,12 +142,16 @@ class DebugMemoryWindow(QObject):
 
     def get_logs_async(self, toolkit, parameters):
         filename = parameters[0]
-        v = self.parent.settings.get_variables()
-        v.cmd = "logs"
-        v.filename = filename
-        from mtkclient.Library.mtk_main import Main
-        Main(v).run(None)
-        self.enableButtonsSignal.emit()
+        try:
+            v = self.parent.settings.get_variables()
+            v.cmd = "logs"
+            v.filename = filename
+            from mtkclient.Library.mtk_main import Main
+            Main(v).run(None)
+        except Exception as e:
+            toolkit.sendToLogSignal.emit(f"GET LOGS ERROR: {str(e)}")
+        finally:
+            self.enableButtonsSignal.emit()
 
     def peek_memory(self):
         filename = self.fdialog.save("peek_dump.bin")
@@ -193,15 +163,19 @@ class DebugMemoryWindow(QObject):
 
     def peek_memory_async(self, toolkit, parameters):
         filename = parameters[0]
-        v = self.parent.settings.get_variables()
-        v.cmd = "peek"
-        v.address = self.edit_addr.text()
-        v.length = self.edit_len.text()
-        v.preloader = self.edit_pl.text() if self.edit_pl.text() else None
-        v.filename = filename
-        from mtkclient.Library.mtk_main import Main
-        Main(v).run(None)
-        self.enableButtonsSignal.emit()
+        try:
+            v = self.parent.settings.get_variables()
+            v.cmd = "peek"
+            v.address = self.combo_peek_addr.currentText()
+            v.length = self.edit_len.text()
+            v.preloader = self.edit_pl.text() if self.edit_pl.text() else None
+            v.filename = filename
+            from mtkclient.Library.mtk_main import Main
+            Main(v).run(None)
+        except Exception as e:
+            toolkit.sendToLogSignal.emit(f"MEMORY PEEK ERROR: {str(e)}")
+        finally:
+            self.enableButtonsSignal.emit()
 
     def mount_fs(self):
         mountpoint = self.edit_mount.text()
@@ -213,12 +187,64 @@ class DebugMemoryWindow(QObject):
 
     def mount_fs_async(self, toolkit, parameters):
         mountpoint, rw = parameters
-        v = self.parent.settings.get_variables()
-        v.cmd = "fs"
-        v.mountpoint = mountpoint
-        v.rw = rw
-        self.da_handler.handle_da_cmds(self.mtkClass, "fs", v)
-        self.enableButtonsSignal.emit()
+        try:
+            v = self.parent.settings.get_variables()
+            v.cmd = "fs"
+            v.mountpoint = mountpoint
+            v.rw = rw
+            self.da_handler.handle_da_cmds(self.mtkClass, "fs", v)
+        except Exception as e:
+            toolkit.sendToLogSignal.emit(f"FUSE MOUNT ERROR: {str(e)}")
+        finally:
+            self.enableButtonsSignal.emit()
+
+    def gen_header(self):
+        brom_file = self.edit_brom_file.text()
+        if not brom_file: return
+        self.disableButtonsSignal.emit()
+        thread = asyncThread(parent=self.parent, n=0, function=self.gen_header_async, parameters=[brom_file])
+        thread.sendToLogSignal.connect(self.sendToLog)
+        thread.start()
+
+    def gen_header_async(self, toolkit, parameters):
+        brom_file = parameters[0]
+        try:
+            from mtkclient.Tools.brom_to_offs import main as brom_main
+            import sys
+            old_argv = sys.argv
+            sys.argv = ["brom_to_offs", brom_file]
+            try:
+                brom_main()
+            finally:
+                sys.argv = old_argv
+        except Exception as e:
+            toolkit.sendToLogSignal.emit(f"BROM TO OFFS ERROR: {str(e)}")
+        finally:
+            self.enableButtonsSignal.emit()
+
+    def parse_da(self):
+        da_file = self.edit_da_file.text()
+        if not da_file: return
+        self.disableButtonsSignal.emit()
+        thread = asyncThread(parent=self.parent, n=0, function=self.parse_da_async, parameters=[da_file])
+        thread.sendToLogSignal.connect(self.sendToLog)
+        thread.start()
+
+    def parse_da_async(self, toolkit, parameters):
+        da_file = parameters[0]
+        try:
+            from mtkclient.Tools.da_parser import main as da_main
+            import sys
+            old_argv = sys.argv
+            sys.argv = ["da_parser", da_file]
+            try:
+                da_main()
+            finally:
+                sys.argv = old_argv
+        except Exception as e:
+            toolkit.sendToLogSignal.emit(f"DA PARSER ERROR: {str(e)}")
+        finally:
+            self.enableButtonsSignal.emit()
 
     def setEnabled(self, enabled):
         self.tab.setEnabled(enabled)

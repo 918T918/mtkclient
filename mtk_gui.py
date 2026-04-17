@@ -10,7 +10,7 @@ from unittest import mock
 from functools import partial
 from PySide6.QtCore import Qt, QVariantAnimation, Signal, QObject, QSize, QTranslator, QLocale, QLibraryInfo, \
     Slot, QCoreApplication
-from PySide6.QtGui import QTextOption, QPixmap, QTransform, QIcon, QAction
+from PySide6.QtGui import QTextOption, QPixmap, QTransform, QIcon, QAction, QActionGroup
 from PySide6.QtWidgets import QMainWindow, QApplication, QWidget, QCheckBox, QVBoxLayout, QHBoxLayout, QLineEdit, \
     QPushButton, QDialog, QListWidgetItem, QListWidget
 
@@ -34,7 +34,7 @@ from mtkclient.gui.toolkit import asyncThread, trap_exc_during_debug, convert_si
     TimeEstim, set_gui_logger
 from mtkclient.config.payloads import PathConfig
 from mtkclient.gui.main_gui import Ui_MainWindow
-from mtkclient.gui.themes import DARK_THEME, LIGHT_THEME
+from mtkclient.gui.themes import DARK_THEME, LIGHT_THEME, PURPLE_THEME, BLUE_THEME, HIGH_CONTRAST_THEME, HACKER_THEME
 import os
 import serial.tools.list_ports
 
@@ -269,10 +269,29 @@ class MainWindow(QMainWindow):
         self.ui.tabWidget.setHidden(True)
         # View menu — always accessible, not gated by device connection
         self.menuView = self.ui.menubar.addMenu("View")
-        self.dark_mode_action = QAction("Dark Mode", self, checkable=True)
-        self.dark_mode_action.setChecked(is_dark)
-        self.dark_mode_action.triggered.connect(self.toggle_dark_mode)
-        self.menuView.addAction(self.dark_mode_action)
+        self.theme_group = QActionGroup(self)
+        
+        themes = [
+            ("Light Mode", "light"),
+            ("Dark Mode", "dark"),
+            ("Midnight Purple", "purple"),
+            ("Midnight Blue", "blue"),
+            ("High Contrast", "contrast"),
+            ("Hacker Green", "hacker")
+        ]
+        
+        self.theme_actions = {}
+        for name, theme_id in themes:
+            action = QAction(name, self, checkable=True)
+            action.triggered.connect(partial(self.set_theme, theme_id))
+            self.menuView.addAction(action)
+            self.theme_group.addAction(action)
+            self.theme_actions[theme_id] = action
+            
+        default_theme = "purple" if is_dark else "light"
+        self.theme_actions[default_theme].setChecked(True)
+        self.set_theme(default_theme)
+
         self.ui.partProgress.setHidden(True)
         self.ui.fullProgress.setHidden(True)
         self.ui.readDumpGPTCheckbox.setChecked(True)
@@ -683,6 +702,7 @@ class MainWindow(QMainWindow):
                     self.initerase()
                     self.initwrite()
                     self.getpartitions()
+                self.reorder_tabs()
                 tw = self.ui.tabWidget
                 for i in range(tw.count()):
                     tw.setTabVisible(i, True)
@@ -691,8 +711,13 @@ class MainWindow(QMainWindow):
                 tw.setHidden(False)
             else:
                 if 'cantConnect' in phone_info:
-                    self.ui.phoneInfoTextbox.setText(
-                        QCoreApplication.translate("main", "Error initialising. Did you install the drivers?"))
+                    error_msg = "CRITICAL ERROR: Initialisation failed.\n\n"
+                    error_msg += "Possible causes:\n"
+                    error_msg += "1. MediaTek VCOM drivers are not installed.\n"
+                    error_msg += "2. USB cable is faulty or not data-capable.\n"
+                    error_msg += "3. Device is not in BROM mode (Hold Vol+ & Vol- while connecting).\n"
+                    error_msg += "4. Linux users: Check udev rules (Setup/Linux/50-android.rules)."
+                    self.ui.phoneInfoTextbox.setText(error_msg)
                 self.spinnerAnim.start()
                 self.ui.spinner_pic.setHidden(False)
 
@@ -731,9 +756,32 @@ class MainWindow(QMainWindow):
 
         self.ui.spinner_pic.setHidden(True)
 
-    def toggle_dark_mode(self, checked: bool):
-        self.app.setStyleSheet(DARK_THEME if checked else LIGHT_THEME)
+    def set_theme(self, theme_id):
+        themes = {
+            "light": LIGHT_THEME,
+            "dark": DARK_THEME,
+            "purple": PURPLE_THEME,
+            "blue": BLUE_THEME,
+            "contrast": HIGH_CONTRAST_THEME,
+            "hacker": HACKER_THEME
+        }
+        self.app.setStyleSheet(themes.get(theme_id, DARK_THEME))
 
+    def reorder_tabs(self):
+        tw = self.ui.tabWidget
+        # Find index of debug tab
+        debug_idx = -1
+        for i in range(tw.count()):
+            if tw.tabText(i) == "Debug Log":
+                debug_idx = i
+                break
+        
+        if debug_idx != -1:
+            # Save the widget, remove it, and add it back at the end
+            debug_widget = tw.widget(debug_idx)
+            debug_text = tw.tabText(debug_idx)
+            tw.removeTab(debug_idx)
+            tw.addTab(debug_widget, debug_text)
 
 def main():
     # Enable nice 4K Scaling

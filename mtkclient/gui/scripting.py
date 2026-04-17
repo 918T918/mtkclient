@@ -24,6 +24,7 @@ class ScriptingWindow(QObject):
 
         # Script Group
         script_group = QGroupBox("Run Script")
+        script_group.setToolTip("Execute a text file containing a list of mtkclient commands.")
         script_layout = QVBoxLayout(script_group)
         h1 = QHBoxLayout()
         h1.addWidget(QLabel("Script File:"))
@@ -33,14 +34,17 @@ class ScriptingWindow(QObject):
         h1.addWidget(self.btn_browse_script)
         script_layout.addLayout(h1)
         self.btn_run_script = QPushButton("Run Script")
+        self.btn_run_script.setToolTip("Starts execution of the selected script file.")
         script_layout.addWidget(self.btn_run_script)
         layout.addWidget(script_group)
 
         # Multi-command Group
         multi_group = QGroupBox("Multi-Command")
+        multi_group.setToolTip("Run multiple commands entered manually, separated by semicolons.")
         multi_layout = QVBoxLayout(multi_group)
         multi_layout.addWidget(QLabel("Commands (semicolon separated):"))
         self.edit_multi = QPlainTextEdit()
+        self.edit_multi.setPlaceholderText("e.g. printgpt; rf flash.bin")
         self.btn_run_multi = QPushButton("Run Multi-Command")
         multi_layout.addWidget(self.edit_multi)
         multi_layout.addWidget(self.btn_run_multi)
@@ -48,9 +52,11 @@ class ScriptingWindow(QObject):
 
         # Devices Group
         devices_group = QGroupBox("Supported Devices")
+        devices_group.setToolTip("Search for supported MTK chipsets and devices.")
         devices_layout = QHBoxLayout(devices_group)
         devices_layout.addWidget(QLabel("Filter:"))
         self.edit_filter = QLineEdit()
+        self.edit_filter.setPlaceholderText("e.g. MT6765")
         self.btn_list_devices = QPushButton("List Devices")
         devices_layout.addWidget(self.edit_filter)
         devices_layout.addWidget(self.btn_list_devices)
@@ -78,12 +84,16 @@ class ScriptingWindow(QObject):
 
     def run_script_async(self, toolkit, parameters):
         script = parameters[0]
-        v = self.parent.settings.get_variables()
-        v.cmd = "script"
-        v.script = script
-        from mtkclient.Library.mtk_main import Main
-        Main(v).run(None)
-        self.enableButtonsSignal.emit()
+        try:
+            v = self.parent.settings.get_variables()
+            v.cmd = "script"
+            v.script = script
+            from mtkclient.Library.mtk_main import Main
+            Main(v).run(None)
+        except Exception as e:
+            toolkit.sendToLogSignal.emit(f"SCRIPT ERROR: {str(e)}")
+        finally:
+            self.enableButtonsSignal.emit()
 
     def run_multi(self):
         commands = self.edit_multi.toPlainText().replace("\n", " ")
@@ -95,12 +105,16 @@ class ScriptingWindow(QObject):
 
     def run_multi_async(self, toolkit, parameters):
         commands = parameters[0]
-        v = self.parent.settings.get_variables()
-        v.cmd = "multi"
-        v.commands = commands
-        from mtkclient.Library.mtk_main import Main
-        Main(v).run(None)
-        self.enableButtonsSignal.emit()
+        try:
+            v = self.parent.settings.get_variables()
+            v.cmd = "multi"
+            v.commands = commands
+            from mtkclient.Library.mtk_main import Main
+            Main(v).run(None)
+        except Exception as e:
+            toolkit.sendToLogSignal.emit(f"MULTI-COMMAND ERROR: {str(e)}")
+        finally:
+            self.enableButtonsSignal.emit()
 
     def list_devices(self):
         self.disableButtonsSignal.emit()
@@ -110,12 +124,16 @@ class ScriptingWindow(QObject):
 
     def list_devices_async(self, toolkit, parameters):
         filter_text = parameters[0]
-        v = self.parent.settings.get_variables()
-        v.cmd = "devices"
-        v.filter = filter_text if filter_text else None
-        from mtkclient.Library.mtk_main import Main
-        Main(v).run(None)
-        self.enableButtonsSignal.emit()
+        try:
+            v = self.parent.settings.get_variables()
+            v.cmd = "devices"
+            v.filter = filter_text if filter_text else None
+            from mtkclient.Library.mtk_main import Main
+            Main(v).run(None)
+        except Exception as e:
+            toolkit.sendToLogSignal.emit(f"DEVICE LIST ERROR: {str(e)}")
+        finally:
+            self.enableButtonsSignal.emit()
 
     def setEnabled(self, enabled):
         self.tab.setEnabled(enabled)

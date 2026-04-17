@@ -1,6 +1,4 @@
 # MTKClient GUI theme stylesheets
-# LIGHT_THEME is an empty string — Qt's native style is used.
-# DARK_THEME is a full QSS override targeting every widget class used in the GUI.
 
 LIGHT_THEME = """
 /* ── Buttons (light mode) ─────────────────────────────────── */
@@ -150,25 +148,6 @@ QScrollBar::handle:vertical {
 QScrollBar::handle:vertical:hover {
     background-color: #808080;
 }
-QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
-    height: 0px;
-}
-QScrollBar:horizontal {
-    background-color: #3c3f41;
-    height: 12px;
-    margin: 0;
-}
-QScrollBar::handle:horizontal {
-    background-color: #606060;
-    min-width: 20px;
-    border-radius: 4px;
-}
-QScrollBar::handle:horizontal:hover {
-    background-color: #808080;
-}
-QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal {
-    width: 0px;
-}
 
 /* ── Scroll areas ─────────────────────────────────────────── */
 QScrollArea {
@@ -178,36 +157,146 @@ QScrollArea {
 QScrollArea QWidget {
     background-color: #2b2b2b;
 }
+"""
 
-/* ── Tables ───────────────────────────────────────────────── */
-QTableWidget {
-    background-color: #1e1e1e;
-    color: #dddddd;
-    gridline-color: #555555;
-    border: 1px solid #555555;
-    selection-background-color: #4a86c8;
+PURPLE_THEME = """
+QMainWindow, QDialog, QWidget {
+    background-color: #1a0f1a;
+    color: #e0d0e0;
 }
-QHeaderView::section {
-    background-color: #3c3f41;
-    color: #bbbbbb;
-    border: 1px solid #555555;
-    padding: 4px;
+QMenuBar, QMenu {
+    background-color: #2d1a2d;
+    color: #d0b0d0;
 }
+QTabWidget::pane {
+    background-color: #1a0f1a;
+    border: 1px solid #4a2a4a;
+}
+QTabBar::tab {
+    background-color: #2d1a2d;
+    color: #d0b0d0;
+    padding: 4px 12px;
+    border: 1px solid #4a2a4a;
+}
+QTabBar::tab:selected {
+    background-color: #1a0f1a;
+    color: #ffffff;
+}
+QPushButton {
+    background-color: #6a2a6a;
+    color: #ffffff;
+    border: 1px solid #8a3a8a;
+    border-radius: 3px;
+    padding: 4px 10px;
+}
+QPushButton:hover {
+    background-color: #8a3a8a;
+}
+QPlainTextEdit, QLineEdit {
+    background-color: #0f080f;
+    color: #f0e0f0;
+    border: 1px solid #4a2a4a;
+}
+QProgressBar::chunk {
+    background-color: #8a3a8a;
+}
+"""
 
-/* ── List widgets ─────────────────────────────────────────── */
-QListWidget {
-    background-color: #1e1e1e;
-    color: #dddddd;
-    border: 1px solid #555555;
-    selection-background-color: #4a86c8;
+BLUE_THEME = """
+QMainWindow, QDialog, QWidget {
+    background-color: #0a101a;
+    color: #d0e0f0;
 }
-QListWidget::item:hover {
-    background-color: #3c3f41;
+QMenuBar, QMenu {
+    background-color: #1a202d;
+    color: #b0c0d0;
 }
+QTabWidget::pane {
+    background-color: #0a101a;
+    border: 1px solid #2a3a4a;
+}
+QTabBar::tab {
+    background-color: #1a202d;
+    color: #b0c0d0;
+    padding: 4px 12px;
+    border: 1px solid #2a3a4a;
+}
+QTabBar::tab:selected {
+    background-color: #0a101a;
+    color: #ffffff;
+}
+QPushButton {
+    background-color: #2a4a6a;
+    color: #ffffff;
+    border: 1px solid #3a5a8a;
+    border-radius: 3px;
+    padding: 4px 10px;
+}
+QPushButton:hover {
+    background-color: #3a5a8a;
+}
+QPlainTextEdit, QLineEdit {
+    background-color: #080a0f;
+    color: #e0f0f0;
+    border: 1px solid #2a3a4a;
+}
+QProgressBar::chunk {
+    background-color: #3a5a8a;
+}
+"""
 
-/* ── Separator frames ─────────────────────────────────────── */
-QFrame[frameShape="4"],
-QFrame[frameShape="5"] {
-    color: #555555;
+HIGH_CONTRAST_THEME = """
+QMainWindow, QDialog, QWidget {
+    background-color: #000000;
+    color: #ffffff;
+}
+QPushButton {
+    background-color: #000000;
+    color: #ffffff;
+    border: 2px solid #ffffff;
+    font-weight: bold;
+}
+QPushButton:hover {
+    background-color: #ffffff;
+    color: #000000;
+}
+QPlainTextEdit, QLineEdit {
+    background-color: #000000;
+    color: #ffffff;
+    border: 1px solid #ffffff;
+}
+QProgressBar {
+    border: 2px solid #ffffff;
+}
+QProgressBar::chunk {
+    background-color: #ffffff;
+}
+"""
+
+HACKER_THEME = """
+QMainWindow, QDialog, QWidget {
+    background-color: #001100;
+    color: #00ff00;
+}
+QMenuBar, QMenu {
+    background-color: #002200;
+    color: #00cc00;
+}
+QPushButton {
+    background-color: #003300;
+    color: #00ff00;
+    border: 1px solid #00ff00;
+}
+QPushButton:hover {
+    background-color: #004400;
+}
+QPlainTextEdit, QLineEdit {
+    background-color: #000000;
+    color: #00ff00;
+    border: 1px solid #00ff00;
+    font-family: monospace;
+}
+QProgressBar::chunk {
+    background-color: #00ff00;
 }
 """

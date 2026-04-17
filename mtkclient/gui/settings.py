@@ -1,4 +1,5 @@
 import os
+from unittest import mock
 from PySide6.QtCore import QObject, Signal, Qt
 from PySide6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QLabel, QLineEdit, QGroupBox, QScrollArea, QCheckBox, QComboBox
 from mtkclient.gui.toolkit import FDialog
@@ -23,22 +24,29 @@ class SettingsWindow(QObject):
 
         # Connection & Interface
         conn_group = QGroupBox("Connection & Interface")
+        conn_group.setToolTip("Hardware communication and logging settings.")
         conn_layout = QVBoxLayout(conn_group)
         
         h1 = QHBoxLayout()
         h1.addWidget(QLabel("VID:"))
         self.edit_vid = QLineEdit()
+        self.edit_vid.setPlaceholderText("0x0E8D")
         h1.addWidget(self.edit_vid)
         h1.addWidget(QLabel("PID:"))
         self.edit_pid = QLineEdit()
+        self.edit_pid.setPlaceholderText("0x0003")
         h1.addWidget(self.edit_pid)
         conn_layout.addLayout(h1)
 
         h2 = QHBoxLayout()
         self.check_stock = QCheckBox("Use Stock DA")
+        self.check_stock.setToolTip("Disable custom payload injection and use original MTK Download Agent.")
         self.check_noreconnect = QCheckBox("No Reconnect")
+        self.check_noreconnect.setToolTip("Do not attempt to reconnect to device after sending DA.")
         self.check_iot = QCheckBox("IoT Mode")
+        self.check_iot.setToolTip("Enable special mode for IoT chips like MT6261.")
         self.check_socid = QCheckBox("Read Soc ID")
+        self.check_socid.setToolTip("Attempt to read the hardware SoC ID during connection.")
         conn_layout.addWidget(self.check_stock)
         conn_layout.addWidget(self.check_noreconnect)
         conn_layout.addWidget(self.check_iot)
@@ -47,7 +55,7 @@ class SettingsWindow(QObject):
         h3 = QHBoxLayout()
         h3.addWidget(QLabel("Log Channel:"))
         self.combo_logchannel = QComboBox()
-        self.combo_logchannel.addItems(["UART", "USB", "BOTH"])
+        self.combo_logchannel.addItems(["BOTH", "UART", "USB"])
         h3.addWidget(self.combo_logchannel)
         h3.addWidget(QLabel("UART Log Level:"))
         self.edit_uartloglevel = QLineEdit("2")
@@ -57,6 +65,7 @@ class SettingsWindow(QObject):
 
         # Authentication
         auth_group = QGroupBox("Authentication")
+        auth_group.setToolTip("Secure Boot authentication and certificate files.")
         auth_layout = QVBoxLayout(auth_group)
         
         h4 = QHBoxLayout()
@@ -77,52 +86,53 @@ class SettingsWindow(QObject):
         layout.addWidget(auth_group)
 
         # Exploit Settings
-        expl_group = QGroupBox("Exploit Settings")
+        expl_group = QGroupBox("Advanced Exploit Offsets")
+        expl_group.setToolTip("Manual overrides for payload and watchdog addresses.")
         expl_layout = QVBoxLayout(expl_group)
         
         h6 = QHBoxLayout()
-        h6.addWidget(QLabel("Payload Type (ptype):"))
-        self.edit_ptype = QLineEdit()
-        h6.addWidget(self.edit_ptype)
         h6.addWidget(QLabel("Var1:"))
         self.edit_var1 = QLineEdit()
+        self.edit_var1.setPlaceholderText("Kamakiri var1")
         h6.addWidget(self.edit_var1)
+        h6.addWidget(QLabel("UART Addr:"))
+        self.edit_uart_addr = QLineEdit()
+        self.edit_uart_addr.setPlaceholderText("0x11002000")
+        h6.addWidget(self.edit_uart_addr)
         expl_layout.addLayout(h6)
 
         h7 = QHBoxLayout()
-        h7.addWidget(QLabel("UART Addr:"))
-        self.edit_uart_addr = QLineEdit()
-        h7.addWidget(self.edit_uart_addr)
         h7.addWidget(QLabel("DA Addr:"))
         self.edit_da_addr = QLineEdit()
+        self.edit_da_addr.setPlaceholderText("0x40000000")
         h7.addWidget(self.edit_da_addr)
+        h7.addWidget(QLabel("BROM Addr:"))
+        self.edit_brom_addr = QLineEdit()
+        self.edit_brom_addr.setPlaceholderText("0x0")
+        h7.addWidget(self.edit_brom_addr)
         expl_layout.addLayout(h7)
 
         h8 = QHBoxLayout()
-        h8.addWidget(QLabel("BROM Addr:"))
-        self.edit_brom_addr = QLineEdit()
-        h8.addWidget(self.edit_brom_addr)
         h8.addWidget(QLabel("WDT Addr:"))
         self.edit_wdt = QLineEdit()
+        self.edit_wdt.setPlaceholderText("Watchdog address")
         h8.addWidget(self.edit_wdt)
+        self.check_skipwdt = QCheckBox("Skip WDT Init")
+        self.check_crash = QCheckBox("Enforce Crash")
+        h8.addWidget(self.check_skipwdt)
+        h8.addWidget(self.check_crash)
         expl_layout.addLayout(h8)
 
         h9 = QHBoxLayout()
-        self.check_skipwdt = QCheckBox("Skip WDT Init")
-        self.check_crash = QCheckBox("Enforce Crash")
-        h9.addWidget(self.check_skipwdt)
-        h9.addWidget(self.check_crash)
-        expl_layout.addLayout(h9)
-
-        h10 = QHBoxLayout()
-        h10.addWidget(QLabel("App ID (hex):"))
+        h9.addWidget(QLabel("App ID (hex):"))
         self.edit_appid = QLineEdit()
-        h10.addWidget(self.edit_appid)
-        expl_layout.addLayout(h10)
+        h9.addWidget(self.edit_appid)
+        expl_layout.addLayout(h9)
         layout.addWidget(expl_group)
 
         # GPT Settings
-        gpt_group = QGroupBox("GPT & Partition Settings")
+        gpt_group = QGroupBox("GPT & Partition Parsing")
+        gpt_group.setToolTip("Low-level partition table structure overrides.")
         gpt_layout = QVBoxLayout(gpt_group)
         
         h11 = QHBoxLayout()
@@ -136,19 +146,20 @@ class SettingsWindow(QObject):
 
         h12 = QHBoxLayout()
         h12.addWidget(QLabel("GPT Num Entries:"))
-        self.edit_gpt_num = QLineEdit("0")
+        self.edit_gpt_num = QLineEdit("128")
         h12.addWidget(self.edit_gpt_num)
         h12.addWidget(QLabel("GPT Entry Size:"))
-        self.edit_gpt_size = QLineEdit("0")
+        self.edit_gpt_size = QLineEdit("128")
         h12.addWidget(self.edit_gpt_size)
         gpt_layout.addLayout(h12)
 
         h13 = QHBoxLayout()
         h13.addWidget(QLabel("GPT Start LBA:"))
-        self.edit_gpt_start = QLineEdit("0")
+        self.edit_gpt_start = QLineEdit("1")
         h13.addWidget(self.edit_gpt_start)
         h13.addWidget(QLabel("Skip Parts:"))
         self.edit_skip = QLineEdit()
+        self.edit_skip.setPlaceholderText("e.g. userdata,cache")
         h13.addWidget(self.edit_skip)
         gpt_layout.addLayout(h13)
         layout.addWidget(gpt_group)
@@ -178,7 +189,6 @@ class SettingsWindow(QObject):
         v.uartloglevel = self.edit_uartloglevel.text()
         v.auth = self.edit_auth.text() if self.edit_auth.text() else None
         v.cert = self.edit_cert.text() if self.edit_cert.text() else None
-        v.ptype = self.edit_ptype.text() if self.edit_ptype.text() else None
         v.var1 = self.edit_var1.text() if self.edit_var1.text() else None
         v.uart_addr = self.edit_uart_addr.text() if self.edit_uart_addr.text() else None
         v.da_addr = self.edit_da_addr.text() if self.edit_da_addr.text() else None

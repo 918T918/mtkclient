@@ -27,6 +27,7 @@ class Stage2Window(QObject):
 
         # Stage2 Dumps Group
         dumps_group = QGroupBox("Stage2 Memory/Storage Dumps")
+        dumps_group.setToolTip("Expert commands for storage and memory extraction while in Stage2 mode.")
         dumps_layout = QVBoxLayout(dumps_group)
         
         h_off = QHBoxLayout()
@@ -52,6 +53,7 @@ class Stage2Window(QObject):
 
         # Stage2 Memory Access Group
         mem_group = QGroupBox("Stage2 Memory Read/Write")
+        mem_group.setToolTip("Direct RAM access. Requires correct offsets for your SoC.")
         mem_layout = QVBoxLayout(mem_group)
         
         h_mem1 = QHBoxLayout()
@@ -81,6 +83,7 @@ class Stage2Window(QObject):
 
         # Stage2 Tools Group
         tools_group = QGroupBox("Stage2 Tools & Crypto")
+        tools_group.setToolTip("Advanced cryptographic and system control functions.")
         tools_layout = QVBoxLayout(tools_group)
         
         h_sec = QHBoxLayout()
@@ -89,6 +92,7 @@ class Stage2Window(QObject):
         self.combo_seccfg.addItems(["unlock", "lock"])
         self.check_sw = QCheckBox("Use SW hashing")
         self.btn_gen_seccfg = QPushButton("Generate SecCfg")
+        self.btn_gen_seccfg.setToolTip("Creates a seccfg.bin file to unlock the bootloader.")
         h_sec.addWidget(self.combo_seccfg)
         h_sec.addWidget(self.check_sw)
         h_sec.addWidget(self.btn_gen_seccfg)
@@ -101,12 +105,13 @@ class Stage2Window(QObject):
         h_keys.addWidget(self.combo_keys_mode)
         h_keys.addWidget(QLabel("OTP:"))
         self.edit_otp = QLineEdit()
-        h_keys.addWidget(self.edit_otp)
         self.btn_get_keys = QPushButton("Extract Keys")
+        h_keys.addWidget(self.edit_otp)
         h_keys.addWidget(self.btn_get_keys)
         tools_layout.addLayout(h_keys)
 
         self.btn_reboot = QPushButton("Reboot Device")
+        self.btn_reboot.setToolTip("Warm resets the target hardware.")
         tools_layout.addWidget(self.btn_reboot)
         layout.addWidget(tools_group)
 
@@ -138,88 +143,89 @@ class Stage2Window(QObject):
 
     def run_st2_async(self, toolkit, parameters):
         cmd = parameters[0]
-        v = self.parent.settings.get_variables()
-        v.cmd = cmd
-        v.start = self.edit_start.text()
-        v.length = self.edit_len.text()
-        v.reverse = False # We'll use default reverse=True logic from CLI main()
-        v.filename = None
-        v.data = self.edit_mem_data.text()
-        v.flag = self.combo_seccfg.currentText()
-        v.sw = self.check_sw.isChecked()
-        v.otp = self.edit_otp.text() if self.edit_otp.text() else None
-        v.mode = self.combo_keys_mode.currentText()
+        try:
+            v = self.parent.settings.get_variables()
+            v.cmd = cmd
+            v.start = self.edit_start.text()
+            v.length = self.edit_len.text()
+            v.reverse = False
+            v.filename = None
+            v.data = self.edit_mem_data.text()
+            v.flag = self.combo_seccfg.currentText()
+            v.sw = self.check_sw.isChecked()
+            v.otp = self.edit_otp.text() if self.edit_otp.text() else None
+            v.mode = self.combo_keys_mode.currentText()
 
-        # Handle file paths for dumps
-        if cmd in ["rpmb", "preloader", "data", "boot2"]:
-            v.filename = self.fdialog.save(f"stage2_{cmd}.bin")
-            if not v.filename:
-                self.enableButtonsSignal.emit()
-                return
+            # Handle file paths for dumps
+            if cmd in ["rpmb", "preloader", "data", "boot2"]:
+                v.filename = self.fdialog.save(f"stage2_{cmd}.bin")
+                if not v.filename:
+                    return
 
-        if cmd == "memread":
-            v.start = self.edit_mem_addr.text()
-            v.length = self.edit_mem_len.text()
-            v.filename = self.fdialog.save("st2_mem_read.bin")
-            if not v.filename:
-                self.enableButtonsSignal.emit()
-                return
+            if cmd == "memread":
+                v.start = self.edit_mem_addr.text()
+                v.length = self.edit_mem_len.text()
+                v.filename = self.fdialog.save("st2_mem_read.bin")
+                if not v.filename:
+                    return
 
-        if cmd == "memwrite":
-            v.start = self.edit_mem_addr.text()
+            if cmd == "memwrite":
+                v.start = self.edit_mem_addr.text()
 
-        # Use the logic from stage2.py main()
-        from stage2 import Stage2, getint
-        st2 = Stage2(v, loglevel=self.parent.loglevel)
-        if st2.connect():
-            if not st2.preinit():
-                toolkit.sendToLogSignal.emit("Error: Stage2 preinit failed.")
+            # Use the logic from stage2.py main()
+            from stage2 import Stage2, getint
+            st2 = Stage2(v, loglevel=self.parent.loglevel)
+            if st2.connect():
+                if not st2.preinit():
+                    toolkit.sendToLogSignal.emit("CRITICAL ERROR: Stage2 hardware pre-initialization failed.")
+                else:
+                    if cmd == "rpmb":
+                        st2.rpmb(getint(v.start), getint(v.length), v.filename, True)
+                    elif cmd == "preloader":
+                        st2.preloader(getint(v.start), getint(v.length), filename=v.filename)
+                    elif cmd == "data":
+                        st2.userdata(getint(v.start), getint(v.length), filename=v.filename)
+                    elif cmd == "boot2":
+                        st2.boot2(getint(v.start), getint(v.length), filename=v.filename)
+                    elif cmd == "memread":
+                        st2.memread(getint(v.start), getint(v.length), v.filename)
+                    elif cmd == "memwrite":
+                        start = getint(v.start)
+                        if os.path.exists(v.data):
+                            filename, data = v.data, None
+                        else:
+                            data = getint(v.data) if "0x" in v.data else v.data
+                            filename = None
+                        if st2.memwrite(start, data, filename):
+                            toolkit.sendToLogSignal.emit(f"SUCCESS: Wrote data to {hex(start)}.")
+                        else:
+                            toolkit.sendToLogSignal.emit(f"FAILED: Writing to {hex(start)} failed.")
+                    elif cmd == "keys":
+                        keys, keyinfo = st2.keys(data=v.data if v.data else b"", mode=v.mode, otp=v.otp)
+                        toolkit.sendToLogSignal.emit(keyinfo)
+                    elif cmd == "reboot":
+                        st2.reboot()
+                    elif cmd == "seccfg":
+                        import hashlib
+                        from struct import pack
+                        lock_state = 3 if v.flag == "unlock" else 1
+                        critical_lock_state = 1 if v.flag == "unlock" else 0
+                        seccfg_ver, seccfg_size, sboot_runtime = 4, 0x3C, 0
+                        seccfg_data = pack("<IIIIIII", 0x4D4D4D4D, seccfg_ver, seccfg_size, lock_state, critical_lock_state, sboot_runtime, 0x45454545)
+                        dec_hash = hashlib.sha256(seccfg_data).digest()
+                        enc_hash = st2.hwcrypto.sej.sej_sec_cfg_sw(dec_hash, True) if v.sw else st2.hwcrypto.sej.sej_sec_cfg_hw(dec_hash, True)
+                        data = seccfg_data + enc_hash
+                        data += b"\x00" * (0x200 - len(data))
+                        with open("seccfg.bin", "wb") as wf:
+                            wf.write(data)
+                        toolkit.sendToLogSignal.emit("SUCCESS: Wrote seccfg to local seccfg.bin. Write this to your seccfg partition.")
+                st2.close()
             else:
-                if cmd == "rpmb":
-                    st2.rpmb(getint(v.start), getint(v.length), v.filename, True)
-                elif cmd == "preloader":
-                    st2.preloader(getint(v.start), getint(v.length), filename=v.filename)
-                elif cmd == "data":
-                    st2.userdata(getint(v.start), getint(v.length), filename=v.filename)
-                elif cmd == "boot2":
-                    st2.boot2(getint(v.start), getint(v.length), filename=v.filename)
-                elif cmd == "memread":
-                    st2.memread(getint(v.start), getint(v.length), v.filename)
-                elif cmd == "memwrite":
-                    start = getint(v.start)
-                    if os.path.exists(v.data):
-                        filename, data = v.data, None
-                    else:
-                        data = getint(v.data) if "0x" in v.data else v.data
-                        filename = None
-                    if st2.memwrite(start, data, filename):
-                        toolkit.sendToLogSignal.emit(f"Successfully wrote data to {hex(start)}.")
-                    else:
-                        toolkit.sendToLogSignal.emit(f"Failed to write data to {hex(start)}.")
-                elif cmd == "keys":
-                    keys, keyinfo = st2.keys(data=v.data if v.data else b"", mode=v.mode, otp=v.otp)
-                    toolkit.sendToLogSignal.emit(keyinfo)
-                elif cmd == "reboot":
-                    st2.reboot()
-                elif cmd == "seccfg":
-                    import hashlib
-                    from struct import pack
-                    lock_state = 3 if v.flag == "unlock" else 1
-                    critical_lock_state = 1 if v.flag == "unlock" else 0
-                    seccfg_ver, seccfg_size, sboot_runtime = 4, 0x3C, 0
-                    seccfg_data = pack("<IIIIIII", 0x4D4D4D4D, seccfg_ver, seccfg_size, lock_state, critical_lock_state, sboot_runtime, 0x45454545)
-                    dec_hash = hashlib.sha256(seccfg_data).digest()
-                    enc_hash = st2.hwcrypto.sej.sej_sec_cfg_sw(dec_hash, True) if v.sw else st2.hwcrypto.sej.sej_sec_cfg_hw(dec_hash, True)
-                    data = seccfg_data + enc_hash
-                    data += b"\x00" * (0x200 - len(data))
-                    with open("seccfg.bin", "wb") as wf:
-                        wf.write(data)
-                    toolkit.sendToLogSignal.emit("Successfully wrote seccfg to seccfg.bin. You need to write seccfg.bin to partition seccfg.")
-            st2.close()
-        else:
-            toolkit.sendToLogSignal.emit("Error: Could not connect to Stage2. Make sure it is running on the device.")
-        
-        self.enableButtonsSignal.emit()
+                toolkit.sendToLogSignal.emit("CONNECTION ERROR: Could not connect to the Stage2 client. Ensure the payload is running.")
+        except Exception as e:
+            toolkit.sendToLogSignal.emit(f"STAGE2 ERROR: {str(e)}")
+        finally:
+            self.enableButtonsSignal.emit()
 
     def setEnabled(self, enabled):
         self.tab.setEnabled(enabled)
