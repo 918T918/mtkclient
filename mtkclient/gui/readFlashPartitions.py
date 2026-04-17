@@ -2,10 +2,7 @@ import os
 import sys
 from unittest import mock
 from PySide6.QtCore import QObject, Signal
-from mtkclient.gui.toolkit import convert_size, FDialog, trap_exc_during_debug, asyncThread
-
-sys.excepthook = trap_exc_during_debug
-
+from mtkclient.gui.toolkit import convert_size, FDialog, asyncThread
 
 class ReadFlashWindow(QObject):
     enableButtonsSignal = Signal()
@@ -68,10 +65,9 @@ class ReadFlashWindow(QObject):
 
         for partition in self.parent.readpartitionCheckboxes:
             if self.parent.readpartitionCheckboxes[partition]['box'].isChecked():
-                variables = mock.Mock()
+                variables = self.parent.settings.get_variables()
                 variables.partitionname = partition
                 variables.filename = os.path.join(self.dumpFolder, partition + ".bin")
-                variables.parttype = None
                 variables.offset = None
                 variables.length = None
                 self.parent.Status["currentPartitionSize"] = self.parent.readpartitionCheckboxes[partition]['size']
@@ -142,9 +138,8 @@ class ReadFlashWindow(QObject):
         # thread.sendUpdateSignal.connect(self.updateDumpState)
         thread.start()
         self.disableButtonsSignal.emit()
-        variables = mock.Mock()
+        variables = self.parent.settings.get_variables()
         variables.filename = self.dumpFile
-        variables.parttype = None
         variables.offset = None
         variables.length = None
         self.parent.Status["dumpFile"] = variables.filename
@@ -161,11 +156,10 @@ class ReadFlashWindow(QObject):
             self.da_handler.handle_da_cmds(self.mtkClass, "rf", variables)
         if self.ui.readDumpGPTCheckbox.isChecked():
             # also dump the GPT
-            variables = mock.Mock()
-            variables.directory = os.path.dirname(self.dumpFile)
-            variables.parttype = None
+            v_gpt = self.parent.settings.get_variables()
+            v_gpt.directory = os.path.dirname(self.dumpFile)
             self.da_handler.close = self.dumpPartDone  # Ignore the normally used sys.exit
-            self.da_handler.handle_da_cmds(self.mtkClass, "gpt", variables)
+            self.da_handler.handle_da_cmds(self.mtkClass, "gpt", v_gpt)
         self.parent.Status["done"] = True
         thread.wait()
         self.enableButtonsSignal.emit()

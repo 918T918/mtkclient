@@ -171,11 +171,18 @@ class FDialog:
         return None
 
 
+_gui_logger = None
+
+def set_gui_logger(logger_func):
+    """Registers a function to receive error logs for display in the GUI."""
+    global _gui_logger
+    _gui_logger = logger_func
+
 def trap_exc_during_debug(type_, value, traceback):
-    print(print_exception(type_, value, traceback), flush=True)
-    # sendToLog("Error: "+str(value))
-    # when app raises uncaught exception, print info
-    # print("OH NO")
-    # print(args)
-    # print(traceback.print_tb(exc_traceback))
-    # print(traceback.format_exc())
+    """Global exception hook that prints to terminal and sends to GUI log."""
+    print_exception(type_, value, traceback)
+    if _gui_logger:
+        try:
+            _gui_logger(f"CRITICAL ERROR: {str(value)}")
+        except:
+            pass

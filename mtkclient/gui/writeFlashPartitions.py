@@ -2,10 +2,7 @@ import os
 import sys
 from unittest import mock
 from PySide6.QtCore import QObject, Signal
-from mtkclient.gui.toolkit import trap_exc_during_debug, asyncThread, FDialog
-
-sys.excepthook = trap_exc_during_debug
-
+from mtkclient.gui.toolkit import asyncThread, FDialog
 
 class WriteFlashWindow(QObject):
     enableButtonsSignal = Signal()
@@ -123,12 +120,12 @@ class WriteFlashWindow(QObject):
             if self.mtkClass.daloader.daconfig.storage.flashtype == "ufs":
                 self.flashsize = self.mtkClass.daloader.daconfig.storage.ufs.lu1_size
             else:
-                self.flashsize = self.mtkClass.daloader.daconfig.storage.emmc.boot1size
+                self.flashsize = self.mtkClass.daloader.daconfig.storage.emmc.boot1_size
         elif parttype == "boot2":
             if self.mtkClass.daloader.daconfig.storage.flashtype == "ufs":
                 self.flashsize = self.mtkClass.daloader.daconfig.storage.ufs.lu2_size
             else:
-                self.flashsize = self.mtkClass.daloader.daconfig.storage.emmc.boot2size
+                self.flashsize = self.mtkClass.daloader.daconfig.storage.emmc.boot2_size
         self.parttype = parttype
         self.parent.Status["totalsize"] = self.flashsize
         self.parent.Status["currentPartitionSize"] = self.flashsize
