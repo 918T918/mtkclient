@@ -76,6 +76,34 @@ class DebugMemoryWindow(QObject):
         fuse_layout.addLayout(h4)
         layout.addWidget(fuse_group)
 
+        # Brom to Offs Group
+        brom_to_offs_group = QGroupBox("Brom to Offsets (Header Generator)")
+        brom_to_offs_layout = QVBoxLayout(brom_to_offs_group)
+        h5 = QHBoxLayout()
+        h5.addWidget(QLabel("BROM Dump:"))
+        self.edit_brom_file = QLineEdit()
+        self.btn_browse_brom = QPushButton("Browse")
+        h5.addWidget(self.edit_brom_file)
+        h5.addWidget(self.btn_browse_brom)
+        brom_to_offs_layout.addLayout(h5)
+        self.btn_gen_header = QPushButton("Generate Header (brom_to_offs)")
+        brom_to_offs_layout.addWidget(self.btn_gen_header)
+        layout.addWidget(brom_to_offs_group)
+
+        # DA Parser Group
+        da_parser_group = QGroupBox("DA Parser (Analyze Download Agent)")
+        da_parser_layout = QVBoxLayout(da_parser_group)
+        h6 = QHBoxLayout()
+        h6.addWidget(QLabel("DA Loader:"))
+        self.edit_da_file = QLineEdit()
+        self.btn_browse_da = QPushButton("Browse")
+        h6.addWidget(self.edit_da_file)
+        h6.addWidget(self.btn_browse_da)
+        da_parser_layout.addLayout(h6)
+        self.btn_parse_da = QPushButton("Parse DA (da_parser)")
+        da_parser_layout.addWidget(self.btn_parse_da)
+        layout.addWidget(da_parser_group)
+
         layout.addStretch()
         scroll.setWidget(content_widget)
         main_layout.addWidget(scroll)
@@ -85,6 +113,54 @@ class DebugMemoryWindow(QObject):
         self.btn_browse_pl.clicked.connect(lambda: self.browse_file(self.edit_pl))
         self.btn_peek.clicked.connect(self.peek_memory)
         self.btn_mount.clicked.connect(self.mount_fs)
+        self.btn_browse_brom.clicked.connect(lambda: self.browse_file(self.edit_brom_file))
+        self.btn_gen_header.clicked.connect(self.gen_header)
+        self.btn_browse_da.clicked.connect(lambda: self.browse_file(self.edit_da_file))
+        self.btn_parse_da.clicked.connect(self.parse_da)
+
+    def parse_da(self):
+        da_file = self.edit_da_file.text()
+        if not da_file: return
+        self.disableButtonsSignal.emit()
+        thread = asyncThread(parent=self.parent, n=0, function=self.parse_da_async, parameters=[da_file])
+        thread.sendToLogSignal.connect(self.sendToLog)
+        thread.start()
+
+    def parse_da_async(self, toolkit, parameters):
+        da_file = parameters[0]
+        from mtkclient.Tools.da_parser import main as da_main
+        import sys
+        old_argv = sys.argv
+        sys.argv = ["da_parser", da_file]
+        try:
+            da_main()
+        except Exception as e:
+            toolkit.sendToLogSignal.emit(f"Error: {str(e)}")
+        finally:
+            sys.argv = old_argv
+        self.enableButtonsSignal.emit()
+
+    def gen_header(self):
+        brom_file = self.edit_brom_file.text()
+        if not brom_file: return
+        self.disableButtonsSignal.emit()
+        thread = asyncThread(parent=self.parent, n=0, function=self.gen_header_async, parameters=[brom_file])
+        thread.sendToLogSignal.connect(self.sendToLog)
+        thread.start()
+
+    def gen_header_async(self, toolkit, parameters):
+        brom_file = parameters[0]
+        from mtkclient.Tools.brom_to_offs import main as brom_main
+        import sys
+        old_argv = sys.argv
+        sys.argv = ["brom_to_offs", brom_file]
+        try:
+            brom_main()
+        except Exception as e:
+            toolkit.sendToLogSignal.emit(f"Error: {str(e)}")
+        finally:
+            sys.argv = old_argv
+        self.enableButtonsSignal.emit()
 
     def browse_file(self, lineedit):
         fname = self.fdialog.open()
